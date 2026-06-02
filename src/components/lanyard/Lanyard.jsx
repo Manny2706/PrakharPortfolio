@@ -166,9 +166,9 @@ export default function Lanyard() {
           </div>
         </div>
         <div className="lanyard-stats">
-          <span>React</span>
-          <span>Motion</span>
-          <span>Portfolio</span>
+          <span>Spring AI</span>
+          <span>Team Lead</span>
+          <span>Microservices</span>
         </div>
       </div>
     </section>

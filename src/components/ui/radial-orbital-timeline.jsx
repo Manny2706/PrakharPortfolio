@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 function getStatusLabel(status) {
   return status.replace('-', ' ');
@@ -6,6 +6,12 @@ function getStatusLabel(status) {
 
 export default function RadialOrbitalTimeline({ timelineData = [] }) {
   const [activeId, setActiveId] = useState(timelineData[0]?.id ?? null);
+  const [hoveredId, setHoveredId] = useState(null);
+  const startRef = useRef(Date.now());
+  const rafRef = useRef(null);
+
+  // Duration must match the CSS orbit duration (ms)
+  const rotationDuration = 7000; // 60s
 
   if (!timelineData.length) {
     return null;
@@ -13,6 +19,27 @@ export default function RadialOrbitalTimeline({ timelineData = [] }) {
 
   const activeItem = timelineData.find((item) => item.id === activeId) ?? timelineData[0];
   const orbitRadius = 204;
+
+  useEffect(() => {
+    if (!timelineData || timelineData.length === 0) return;
+
+    // Round-robin activation: advance to the next node each slice.
+    const slice = rotationDuration / timelineData.length;
+    let startIdx = timelineData.findIndex((t) => t.id === activeId);
+    if (startIdx < 0) startIdx = 0;
+    const idxRef = { current: startIdx };
+
+    const tick = () => {
+      if (hoveredId) return; // respect user interaction
+      idxRef.current = (idxRef.current + 1) % timelineData.length;
+      setActiveId(timelineData[idxRef.current].id);
+    };
+
+    // Start interval; use slice duration so it cycles evenly around the ring.
+    const id = setInterval(tick, slice);
+
+    return () => clearInterval(id);
+  }, [timelineData, hoveredId, activeId]);
 
   return (
     <section className="radial-timeline" aria-label="Radial orbital contact links">
@@ -35,26 +62,37 @@ export default function RadialOrbitalTimeline({ timelineData = [] }) {
               const Icon = item.icon;
 
               return (
-                <a
+                <div
                   key={item.id}
-                  className={`radial-node ${isActive ? 'is-active' : ''}`}
-                  href={item.href}
-                  target="_blank"
-                  rel="noreferrer"
+                  className="radial-node-wrap"
                   style={{
-                    transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(${orbitRadius}px) rotate(${-angle}deg) scale(${isActive ? 1.05 : 1})`,
+                    '--base-angle': `${angle}deg`,
+                    '--radius': `${orbitRadius}px`,
+                    '--delay': `${-(index / timelineData.length) * 60}s`,
                   }}
-                  onMouseEnter={() => setActiveId(item.id)}
-                  onFocus={() => setActiveId(item.id)}
                 >
-                  <span className="radial-node-icon">
-                    <Icon size={16} strokeWidth={2} />
-                  </span>
-                  <span className="radial-node-copy">
-                    <strong>{item.title}</strong>
-                    <span>{item.handle ?? item.date}</span>
-                  </span>
-                </a>
+                  <div className="radial-node-spin" style={{ animationDelay: `var(--delay)` }}>
+                    <a
+                      className={`radial-node ${isActive ? 'is-active' : ''}`}
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      onMouseEnter={() => { setActiveId(item.id); setHoveredId(item.id); }}
+                      onMouseLeave={() => setHoveredId(null)}
+                      onFocus={() => { setActiveId(item.id); setHoveredId(item.id); }}
+                      onBlur={() => setHoveredId(null)}
+                      style={{ animationDelay: `var(--delay)` }}
+                    >
+                      <span className="radial-node-icon">
+                        <Icon size={16} strokeWidth={2} />
+                      </span>
+                      <span className="radial-node-copy">
+                        <strong>{item.title}</strong>
+                        <span>{item.handle ?? item.date}</span>
+                      </span>
+                    </a>
+                  </div>
+                </div>
               );
             })}
           </div>
